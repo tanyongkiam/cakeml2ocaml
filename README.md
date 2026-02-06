@@ -58,8 +58,17 @@ ocaml_transpiler/
     hello.cml                Test: "Hello, World!"
     fib.cml                  Test: Fibonacci (fib 10 = 55)
     arith.cml                Test: arithmetic with printed output
+    patmatch.cml             Test: datatypes and pattern matching
+    higherorder.cml          Test: higher-order functions
+    exceptions.cml           Test: raise/handle with payloads
+    refs.cml                 Test: mutable references and closures
+    strings.cml              Test: string operations
+    mutualrec.cml            Test: mutual recursion
+    sorting.cml              Test: quicksort
+    option.cml               Test: option type and lookup
   generated/                 (gitignored) transpiler output goes here
   basis_ffi.c               C runtime for assembling CakeML compiler output
+  test_bootstrap.sh         Bootstrap self-compilation test
   Makefile
   dune-project
 ```
@@ -210,9 +219,9 @@ the protocol defined in `basis_ffi.c`:
 | `open_out` | Open file read-write (create/truncate): same format as `open_in` |
 | `close` | Close fd: `c` = 8-byte BE fd, `a` = `[err:1]` |
 | `exit` | Exit with code `a[0]` |
-| `get_arg_count` | Write argc to `a[0:2]` (2-byte BE) |
-| `get_arg_length` | Read arg index from `a[0:2]`, write length to `a[0:2]` |
-| `get_arg` | Read arg index from `a[0:2]`, blit arg string into `a` |
+| `get_arg_count` | Write argc to `a[0:2]` (2-byte LE) |
+| `get_arg_length` | Read arg index from `a[0:2]` (LE), write length to `a[0:2]` (LE) |
+| `get_arg` | Read arg index from `a[0:2]` (LE), blit arg string into `a` |
 | `double_*` | Float parsing/formatting/math operations |
 | `poll_sigint` | No-op |
 
@@ -236,14 +245,22 @@ gcc -o program program.S basis_ffi.c -lm
 
 ## Test programs
 
-The `test/` directory contains simple CakeML programs for validating the
-generated compiler:
+The `test/` directory contains CakeML programs for validating the generated
+compiler:
 
 | File | Description | Expected output |
 |------|-------------|-----------------|
 | `hello.cml` | Print a string | `Hello, World!` |
 | `fib.cml` | Compute fib(10) | `55` |
 | `arith.cml` | Arithmetic and string conversion | `2 + 3 = 5` / `5 * 7 = 35` |
+| `patmatch.cml` | User-defined datatypes and pattern matching | Areas of shapes |
+| `higherorder.cml` | map, filter, foldl with lambdas | Transformed lists |
+| `exceptions.cml` | raise/handle with payloads | Exception handling results |
+| `refs.cml` | Mutable references and closures | Counter sequences |
+| `strings.cml` | String explode/implode, palindrome check | String operations |
+| `mutualrec.cml` | Mutual recursion (fun/and) | Even/odd classification |
+| `sorting.cml` | Quicksort with partition | Sorted list |
+| `option.cml` | Option type, association list lookup | Option results |
 
 To run a test:
 
@@ -252,6 +269,34 @@ cat test/hello.cml | ./generated/cake64 2>/dev/null > /tmp/hello.S
 gcc -o /tmp/hello /tmp/hello.S basis_ffi.c -lm
 /tmp/hello
 ```
+
+
+## Bootstrap test
+
+`test_bootstrap.sh` verifies that the OCaml-transpiled compiler can
+compile itself from its own s-expression AST, and that the resulting
+native compiler produces identical output:
+
+```
+sexpr ─── cake64 (OCaml) ──→ gen1.S ─── gcc ──→ cake64_native
+                                                       │
+sexpr ─── cake64_native ───→ gen2.S                    │
+                                                       │
+assertion: gen1.S == gen2.S (byte-identical) ───────────┘
+```
+
+```sh
+./test_bootstrap.sh                     # uses ../cake-sexpr-64 by default
+./test_bootstrap.sh /path/to/sexpr      # or specify a different sexpr file
+```
+
+The script requires:
+- `generated/cake64` to be built (the OCaml-transpiled compiler)
+- `ulimit -s unlimited` for the OCaml binary (set automatically by the script)
+- `CML_HEAP_SIZE=4096 CML_STACK_SIZE=4096` for the native binary
+  (4GB heap + 4GB stack; set automatically, override via environment)
+- `--sexp=true --skip_type_inference=true` flags (the sexpr contains
+  `Denv` declarations that the type checker does not support)
 
 
 ## Build requirements
