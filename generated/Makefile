@@ -24,9 +24,12 @@ IL_TYPE_SRCS = il_types/common.ml il_types/flat_lang.ml il_types/clos_lang.ml \
 
 IL_TYPE_CMXS = $(IL_TYPE_SRCS:.ml=.cmx)
 
-# Conversion source files (order matters)
+# Conversion source files (order matters: common_conv first, then clos before flat/bvl/bvi/data)
 CONV_SRCS = il_types/common_conv.ml il_types/clos_lang_conv.ml \
-            il_types/word_lang_conv.ml il_types/stack_lang_conv.ml
+            il_types/flat_lang_conv.ml il_types/bvl_lang_conv.ml \
+            il_types/bvi_lang_conv.ml il_types/data_lang_conv.ml \
+            il_types/word_lang_conv.ml il_types/stack_lang_conv.ml \
+            il_types/lab_lang_conv.ml
 
 CONV_CMXS = $(CONV_SRCS:.ml=.cmx)
 
@@ -78,7 +81,22 @@ il_types/clos_lang_conv.cmx: il_types/clos_lang_conv.ml il_types/common_conv.cmx
 il_types/word_lang_conv.cmx: il_types/word_lang_conv.ml il_types/common_conv.cmx
 	$(OCAMLOPT_C) $(OFLAGS) -I il_types -I . $<
 
+il_types/flat_lang_conv.cmx: il_types/flat_lang_conv.ml il_types/common_conv.cmx il_types/clos_lang_conv.cmx
+	$(OCAMLOPT_C) $(OFLAGS) -I il_types -I . $<
+
+il_types/bvl_lang_conv.cmx: il_types/bvl_lang_conv.ml il_types/clos_lang_conv.cmx
+	$(OCAMLOPT_C) $(OFLAGS) -I il_types -I . $<
+
+il_types/bvi_lang_conv.cmx: il_types/bvi_lang_conv.ml il_types/clos_lang_conv.cmx
+	$(OCAMLOPT_C) $(OFLAGS) -I il_types -I . $<
+
+il_types/data_lang_conv.cmx: il_types/data_lang_conv.ml il_types/common_conv.cmx il_types/clos_lang_conv.cmx
+	$(OCAMLOPT_C) $(OFLAGS) -I il_types -I . $<
+
 il_types/stack_lang_conv.cmx: il_types/stack_lang_conv.ml il_types/common_conv.cmx
+	$(OCAMLOPT_C) $(OFLAGS) -I il_types -I . $<
+
+il_types/lab_lang_conv.cmx: il_types/lab_lang_conv.ml il_types/common_conv.cmx
 	$(OCAMLOPT_C) $(OFLAGS) -I il_types -I . $<
 
 # --- Clean ---
