@@ -321,19 +321,28 @@ let ffi_exit (_ : string) (a : bytes) =
   let code = Char.code (Bytes.get a 0) in
   exit code
 
+(* Command-line arg FFI uses LITTLE-ENDIAN 2-byte encoding
+   (unlike file I/O which uses big-endian) *)
+let read_le16 buf off =
+  Char.code (Bytes.get buf off) lor (Char.code (Bytes.get buf (off+1)) lsl 8)
+
+let write_le16 buf off v =
+  Bytes.set buf off (Char.chr (v land 0xFF));
+  Bytes.set buf (off+1) (Char.chr ((v lsr 8) land 0xFF))
+
 let ffi_get_arg_count (_ : string) (a : bytes) =
   let argc = Array.length Sys.argv in
-  write_be16 a 0 argc
+  write_le16 a 0 argc
 
 let ffi_get_arg_length (_ : string) (a : bytes) =
-  let n = read_be16 a 0 in
+  let n = read_le16 a 0 in
   if n < Array.length Sys.argv then
-    write_be16 a 0 (String.length Sys.argv.(n))
+    write_le16 a 0 (String.length Sys.argv.(n))
   else
-    write_be16 a 0 0
+    write_le16 a 0 0
 
 let ffi_get_arg (_ : string) (a : bytes) =
-  let n = read_be16 a 0 in
+  let n = read_le16 a 0 in
   if n < Array.length Sys.argv then begin
     let arg = Sys.argv.(n) in
     Bytes.blit_string arg 0 a 0 (min (String.length arg) (Bytes.length a))
