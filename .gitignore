@@ -1,0 +1,28 @@
+_build/
+*.cmi
+*.cmx
+*.cmo
+*.cma
+*.cmxa
+*.cmxs
+*.o
+*.a
+
+# Generated/compiled binaries
+generated/cake64
+generated/cake32
+generated/cake64_compiled
+generated/cake64_test
+generated/*.cmi
+generated/*.cmx
+generated/*.o
+
+# Vim swap files
+*.swp
+*.swo
+
+# Generated OCaml source (regeneratable from cake-sexpr-* inputs)
+generated/cake64.ml
+generated/cake32.ml
+generated/transpile.log
+generated/transpile32.log

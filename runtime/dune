@@ -1,0 +1,3 @@
+(library
+ (name cakeml_runtime)
+ (libraries zarith unix))

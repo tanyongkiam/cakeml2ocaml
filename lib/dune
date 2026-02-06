@@ -1,0 +1,3 @@
+(library
+ (name cakeml_transpiler_lib)
+ (libraries zarith))

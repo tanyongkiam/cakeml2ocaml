@@ -1,0 +1,4 @@
+val x = 2 + 3
+val y = x * 7
+val _ = TextIO.print ("2 + 3 = " ^ Int.toString x ^ "\n")
+val _ = TextIO.print ("5 * 7 = " ^ Int.toString y ^ "\n")
