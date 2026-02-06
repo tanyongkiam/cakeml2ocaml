@@ -1,0 +1,21 @@
+fun safe_div a b = if b = 0 then None else Some (a div b)
+
+fun show_opt x = case x of None => "None" | Some n => "Some " ^ Int.toString n
+
+fun maybe default f x = case x of None => default | Some v => f v
+
+val _ = TextIO.print ("10 / 3 = " ^ show_opt (safe_div 10 3) ^ "\n")
+val _ = TextIO.print ("10 / 0 = " ^ show_opt (safe_div 10 0) ^ "\n")
+
+val result = maybe 0 (fn x => x + 1) (safe_div 100 10)
+val _ = TextIO.print ("(100/10)+1 = " ^ Int.toString result ^ "\n")
+
+fun lookup key xs =
+  case xs of
+    [] => None
+  | ((k,v)::rest) => if key = k then Some v else lookup key rest
+
+val table = [("alice", 30), ("bob", 25), ("carol", 35)]
+
+val _ = TextIO.print ("alice: " ^ show_opt (lookup "alice" table) ^ "\n")
+val _ = TextIO.print ("dave:  " ^ show_opt (lookup "dave" table) ^ "\n")

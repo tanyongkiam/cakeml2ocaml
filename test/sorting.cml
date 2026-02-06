@@ -1,0 +1,25 @@
+fun append xs ys = case xs of [] => ys | (x::rest) => x :: append rest ys
+
+fun partition pivot xs lo hi =
+  case xs of
+    [] => (lo, hi)
+  | (x::rest) =>
+      if x <= pivot
+      then partition pivot rest (x::lo) hi
+      else partition pivot rest lo (x::hi)
+
+fun qsort xs =
+  case xs of
+    [] => []
+  | (pivot::rest) =>
+      let val (lo, hi) = partition pivot rest [] []
+      in append (qsort lo) (pivot :: qsort hi)
+      end
+
+fun show_list xs = case xs of [] => "" | [x] => Int.toString x | (x::rest) => Int.toString x ^ " " ^ show_list rest
+
+val input = [38, 27, 43, 3, 9, 82, 10]
+val sorted = qsort input
+
+val _ = TextIO.print ("input:  " ^ show_list input ^ "\n")
+val _ = TextIO.print ("sorted: " ^ show_list sorted ^ "\n")

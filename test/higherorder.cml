@@ -1,0 +1,17 @@
+fun map f xs = case xs of [] => [] | (x::rest) => f x :: map f rest
+
+fun filter p xs = case xs of [] => [] | (x::rest) => if p x then x :: filter p rest else filter p rest
+
+fun foldl f acc xs = case xs of [] => acc | (x::rest) => foldl f (f acc x) rest
+
+val nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+val doubled = map (fn x => x * 2) nums
+val evens = filter (fn x => x mod 2 = 0) nums
+val sum = foldl (fn a => fn b => a + b) 0 nums
+
+fun show_list xs = case xs of [] => "" | [x] => Int.toString x | (x::rest) => Int.toString x ^ ", " ^ show_list rest
+
+val _ = TextIO.print ("doubled: " ^ show_list doubled ^ "\n")
+val _ = TextIO.print ("evens:   " ^ show_list evens ^ "\n")
+val _ = TextIO.print ("sum:     " ^ Int.toString sum ^ "\n")

@@ -1,0 +1,23 @@
+val s = "Hello, CakeML"
+val n = String.size s
+
+fun reverse_string s =
+  String.implode (List.rev (String.explode s))
+
+val rev = reverse_string s
+
+fun to_lower c =
+  if Char.ord c >= 65 andalso Char.ord c <= 90
+  then Char.chr (Char.ord c + 32)
+  else c
+
+fun is_palindrome s =
+  let val lower = String.implode (List.map to_lower (String.explode s))
+  in lower = reverse_string lower
+  end
+
+val _ = TextIO.print ("string: " ^ s ^ "\n")
+val _ = TextIO.print ("length: " ^ Int.toString n ^ "\n")
+val _ = TextIO.print ("reversed: " ^ rev ^ "\n")
+val _ = TextIO.print ("racecar palindrome: " ^ (if is_palindrome "racecar" then "yes" else "no") ^ "\n")
+val _ = TextIO.print ("hello palindrome: " ^ (if is_palindrome "hello" then "yes" else "no") ^ "\n")

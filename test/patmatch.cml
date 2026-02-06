@@ -1,0 +1,16 @@
+datatype shape = Circle int | Rect int int | Triangle int int int
+
+fun area s =
+  case s of
+    Circle r => r * r * 3
+  | Rect w h => w * h
+  | Triangle a b _ => (a * b) div 2
+
+val shapes = [Circle 5, Rect 3 4, Triangle 6 8 10]
+
+fun show_area s =
+  let val a = area s in
+    TextIO.print ("area = " ^ Int.toString a ^ "\n")
+  end
+
+val _ = List.app show_area shapes

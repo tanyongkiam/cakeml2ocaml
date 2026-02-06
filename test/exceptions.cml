@@ -1,0 +1,26 @@
+exception NotFound
+exception Result int
+
+fun find_index x xs =
+  case xs of
+    [] => raise NotFound
+  | (y::ys) => if x = y then 0 else 1 + find_index x ys
+
+fun safe_find x xs =
+  (Int.toString (find_index x xs))
+  handle NotFound => "not found"
+
+val _ = TextIO.print ("index of 3 in [1,2,3,4]: " ^ safe_find 3 [1,2,3,4] ^ "\n")
+val _ = TextIO.print ("index of 9 in [1,2,3,4]: " ^ safe_find 9 [1,2,3,4] ^ "\n")
+
+fun first_over threshold xs =
+  case xs of
+    [] => raise NotFound
+  | (x::rest) => if x > threshold then raise (Result x) else first_over threshold rest
+
+val answer =
+  (first_over 50 [10, 20, 30, 75, 100]; "none raised")
+  handle Result n => "found " ^ Int.toString n
+       | NotFound => "not found"
+
+val _ = TextIO.print ("first over 50: " ^ answer ^ "\n")

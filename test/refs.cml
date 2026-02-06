@@ -1,0 +1,25 @@
+val counter = Ref 0
+
+fun next () =
+  let val n = !counter in
+    counter := n + 1;
+    n
+  end
+
+val a = next ()
+val b = next ()
+val c = next ()
+
+val _ = TextIO.print ("a=" ^ Int.toString a ^ " b=" ^ Int.toString b ^ " c=" ^ Int.toString c ^ "\n")
+
+fun make_counter start =
+  let val r = Ref start in
+    fn () => let val n = !r in r := n + 1; n end
+  end
+
+val tick = make_counter 10
+val x = tick ()
+val y = tick ()
+val z = tick ()
+
+val _ = TextIO.print ("x=" ^ Int.toString x ^ " y=" ^ Int.toString y ^ " z=" ^ Int.toString z ^ "\n")

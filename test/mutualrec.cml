@@ -1,0 +1,13 @@
+fun is_even n = if n = 0 then True else is_odd (n - 1)
+and is_odd n = if n = 0 then False else is_even (n - 1)
+
+fun check n =
+  let val e = if is_even n then "even" else "odd"
+  in TextIO.print (Int.toString n ^ " is " ^ e ^ "\n")
+  end
+
+val _ = check 0
+val _ = check 1
+val _ = check 7
+val _ = check 42
+val _ = check 99
