@@ -3,6 +3,7 @@ type id =
   | Long of string * id
 
 type cmp = Equal | Less | Greater | LessEq | GreaterEq
+         | AltLess | AltLessEq | AltGreater | AltGreaterEq
 type word_size = W8 | W64
 type comp_type = IntT | BoolT | StrT | CharT | Word8T | Word64T | Float64T
 
@@ -34,6 +35,11 @@ type op =
   | FPuop of fp_uop
   | FPtop of fp_top
   | FpFromWord | FpToWord
+  | BoolNot
+  | CharToW8 | W8ToChar
+  | Asubunsafe | Aupdateunsafe
+  | Aw8subunsafe | Aw8updateunsafe
+  | Vsubunsafe | XorAw8Strunsafe
   | ConfigGC
   | Eval
   | FFI of string

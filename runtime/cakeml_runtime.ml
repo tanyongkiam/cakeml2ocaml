@@ -78,6 +78,36 @@ let test_gt_float (a : float) (b : float) = a > b
 let test_leq_float (a : float) (b : float) = a <= b
 let test_geq_float (a : float) (b : float) = a >= b
 
+(* Alt comparisons — identical semantics to regular comparisons *)
+let test_altlt_int = test_lt_int
+let test_altleq_int = test_leq_int
+let test_altgt_int = test_gt_int
+let test_altgeq_int = test_geq_int
+let test_altlt_bool = test_lt_bool
+let test_altleq_bool = test_leq_bool
+let test_altgt_bool = test_gt_bool
+let test_altgeq_bool = test_geq_bool
+let test_altlt_str = test_lt_str
+let test_altleq_str = test_leq_str
+let test_altgt_str = test_gt_str
+let test_altgeq_str = test_geq_str
+let test_altlt_char = test_lt_char
+let test_altleq_char = test_leq_char
+let test_altgt_char = test_gt_char
+let test_altgeq_char = test_geq_char
+let test_altlt_w8 = test_lt_w8
+let test_altleq_w8 = test_leq_w8
+let test_altgt_w8 = test_gt_w8
+let test_altgeq_w8 = test_geq_w8
+let test_altlt_w64 = test_lt_w64
+let test_altleq_w64 = test_leq_w64
+let test_altgt_w64 = test_gt_w64
+let test_altgeq_w64 = test_geq_w64
+let test_altlt_float = test_lt_float
+let test_altleq_float = test_leq_float
+let test_altgt_float = test_gt_float
+let test_altgeq_float = test_geq_float
+
 (* === Word8 operations === *)
 let w8_mask = 0xFF
 
@@ -150,6 +180,10 @@ let chr (n : Z.t) =
   if i < 0 || i > 255 then raise Chr_exn
   else Char.chr i
 
+(* === Char/Word8 conversions === *)
+let char_to_w8 (c : char) = Char.code c
+let w8_to_char (n : int) = Char.chr (n land 0xFF)
+
 (* === Array operations === *)
 let aalloc (n : Z.t) (v : 'a) = Array.make (Z.to_int n) v
 let aalloc_empty () : 'a array = [||]
@@ -163,6 +197,10 @@ let aupdate (a : 'a array) (i : Z.t) (v : 'a) =
   if idx < 0 || idx >= Array.length a then raise Subscript_exn
   else a.(idx) <- v
 
+(* Unsafe array ops (no bounds checking) *)
+let asub_unsafe (a : 'a array) (i : Z.t) = Array.unsafe_get a (Z.to_int i)
+let aupdate_unsafe (a : 'a array) (i : Z.t) (v : 'a) = Array.unsafe_set a (Z.to_int i) v
+
 (* === Byte array (Word8Array) operations === *)
 let aw8alloc (n : Z.t) (v : int) = Bytes.make (Z.to_int n) (Char.chr (v land 0xFF))
 let aw8sub (a : bytes) (i : Z.t) =
@@ -175,6 +213,10 @@ let aw8update (a : bytes) (i : Z.t) (v : int) =
   if idx < 0 || idx >= Bytes.length a then raise Subscript_exn
   else Bytes.set a idx (Char.chr (v land 0xFF))
 
+(* Unsafe byte array ops (no bounds checking) *)
+let aw8sub_unsafe (a : bytes) (i : Z.t) = Char.code (Bytes.unsafe_get a (Z.to_int i))
+let aw8update_unsafe (a : bytes) (i : Z.t) (v : int) = Bytes.unsafe_set a (Z.to_int i) (Char.chr (v land 0xFF))
+
 (* === Vector operations (immutable arrays) === *)
 type 'a vector = 'a array
 let vfrom_list (l : 'a list) : 'a vector = Array.of_list l
@@ -183,6 +225,20 @@ let vsub (v : 'a vector) (i : Z.t) =
   if idx < 0 || idx >= Array.length v then raise Subscript_exn
   else v.(idx)
 let vlength (v : 'a vector) = Z.of_int (Array.length v)
+
+(* Unsafe vector op *)
+let vsub_unsafe (v : 'a vector) (i : Z.t) = Array.unsafe_get v (Z.to_int i)
+
+(* === XorAw8Str (unsafe) === *)
+let xor_aw8_str_unsafe (buf : bytes) (s : string) (off : Z.t) (len : Z.t) =
+  let off_i = Z.to_int off in
+  let len_i = Z.to_int len in
+  for i = 0 to len_i - 1 do
+    let j = off_i + i in
+    let b = Char.code (Bytes.unsafe_get buf j) in
+    let c = Char.code (String.unsafe_get s i) in
+    Bytes.unsafe_set buf j (Char.chr (b lxor c))
+  done
 
 (* === Float operations === *)
 let fp_add (a : float) (b : float) = a +. b

@@ -101,6 +101,9 @@ let sanitize_module_name s =
 (* Track defined type names to detect redundant re-exports from Dlocal flattening *)
 let defined_types : (string, bool) Hashtbl.t = Hashtbl.create 128
 
+(* Track defined exception names to detect duplicate definitions from Dlocal flattening *)
+let defined_exns : (string, bool) Hashtbl.t = Hashtbl.create 32
+
 (* Track type arities (number of type params) for phantom type arg stripping *)
 let type_arities : (string, int) Hashtbl.t = Hashtbl.create 128
 
@@ -124,7 +127,12 @@ let resolve_type_name name =
       | None -> sname (* no resolution found, use as-is *)
       | Some i ->
         let suffix = String.sub s (i + 1) (String.length s - i - 1) in
-        if Hashtbl.mem type_arities suffix then begin
+        let is_builtin_suffix = match suffix with
+          | "list" | "option" | "bool" | "string" | "char" | "int"
+          | "word8" | "word64" | "unit" | "ref" | "vector"
+          | "word8array" | "byte_array" | "double" | "array" -> true
+          | _ -> false in
+        if Hashtbl.mem type_arities suffix || is_builtin_suffix then begin
           Hashtbl.replace type_long_to_short sname suffix;
           suffix
         end else
@@ -261,7 +269,7 @@ let rec emit_type e typ =
   | Atapp ([], Short "bool") -> emit e "bool"
   | Atapp ([], Short "word8") -> emit e "int"
   | Atapp ([], Short "word64") -> emit e "int64"
-  | Atapp ([], Short "word8array") -> emit e "bytes"
+  | Atapp ([], Short ("word8array" | "byte_array")) -> emit e "bytes"
   | Atapp ([], Short "double") -> emit e "float"
   | Atapp ([], Short "vector") -> emit e "Obj.t array"
   | Atapp ([arg], Short "vector") ->
@@ -277,7 +285,13 @@ let rec emit_type e typ =
         if resolved <> sanitize_name s then Short resolved else id
       | _ -> id
     in
-    emit_id e resolved_id
+    (* If resolved to a builtin, re-emit through the standard path *)
+    (match resolved_id with
+     | Short ("list" | "option" | "bool" | "string" | "char" | "int"
+            | "word8" | "word64" | "unit" | "ref" | "vector"
+            | "word8array" | "byte_array" | "double" | "array" as s) ->
+       emit_type e (Atapp ([], Short s))
+     | _ -> emit_id e resolved_id)
   | Atapp (args, id) ->
     (* Resolve long type names and check known arity to trim phantom type args *)
     let id_name = match id with Short s -> sanitize_name s | Long (_, Short s) -> sanitize_name s | _ -> "" in
@@ -373,7 +387,7 @@ let is_builtin_type name =
   match name with
   | "list" | "option" | "bool" | "string" | "char" | "int"
   | "word8" | "word64" | "unit" | "ref" | "vector"
-  | "word8array" | "double" | "array" -> true
+  | "word8array" | "byte_array" | "double" | "array" -> true
   | _ -> false
 
 (* Emit a pattern *)
@@ -490,6 +504,8 @@ let emit_op_name e op =
     let cmp_s = match cmp with
       | Equal -> "equal" | Less -> "lt" | Greater -> "gt"
       | LessEq -> "leq" | GreaterEq -> "geq"
+      | AltLess -> "altlt" | AltLessEq -> "altleq"
+      | AltGreater -> "altgt" | AltGreaterEq -> "altgeq"
     in
     let typ_s = match typ with
       | IntT -> "int" | BoolT -> "bool" | StrT -> "str"
@@ -559,6 +575,15 @@ let emit_op_name e op =
   | FPtop FPFma -> emit e "Cakeml_runtime.fp_fma"
   | FpFromWord -> emit e "Cakeml_runtime.fp_from_word"
   | FpToWord -> emit e "Cakeml_runtime.fp_to_word"
+  | BoolNot -> emit e "not"
+  | CharToW8 -> emit e "Cakeml_runtime.char_to_w8"
+  | W8ToChar -> emit e "Cakeml_runtime.w8_to_char"
+  | Asubunsafe -> emit e "Cakeml_runtime.asub_unsafe"
+  | Aupdateunsafe -> emit e "Cakeml_runtime.aupdate_unsafe"
+  | Aw8subunsafe -> emit e "Cakeml_runtime.aw8sub_unsafe"
+  | Aw8updateunsafe -> emit e "Cakeml_runtime.aw8update_unsafe"
+  | Vsubunsafe -> emit e "Cakeml_runtime.vsub_unsafe"
+  | XorAw8Strunsafe -> emit e "Cakeml_runtime.xor_aw8_str_unsafe"
   | ConfigGC -> emit e "Cakeml_runtime.config_gc"
   | Eval -> emit e "Cakeml_runtime.eval"
   | FFI name -> emit e (Printf.sprintf "Cakeml_runtime.ffi_%s" (sanitize_name name))
@@ -870,12 +895,17 @@ let rec emit_dec ?(in_module=false) e dec =
     emit_newline e
 
   | Dexn (name, types) ->
+    let sname = sanitize_con_name name in
     if is_builtin_exn name then begin
       emit e "(* exception "; emit e name; emit e " already defined *)";
       emit_newline e
+    end else if Hashtbl.mem defined_exns sname then begin
+      emit e "(* exception "; emit e sname; emit e " already defined *)";
+      emit_newline e
     end else begin
+      Hashtbl.replace defined_exns sname true;
       emit e "exception ";
-      emit e (sanitize_con_name name);
+      emit e sname;
       (match types with
        | [] -> ()
        | _ ->
@@ -932,9 +962,11 @@ let rec emit_dec ?(in_module=false) e dec =
     emit e (sanitize_module_name name);
     emit e " = struct";
     emit_newline e;
-    (* Save and clear defined_types for the module scope *)
+    (* Save and clear defined_types/exns for the module scope *)
     let saved_types = Hashtbl.copy defined_types in
+    let saved_exns = Hashtbl.copy defined_exns in
     Hashtbl.clear defined_types;
+    Hashtbl.clear defined_exns;
     emit_indent e (fun () ->
       List.iter (fun d ->
         emit_dec ~in_module:true e d;
@@ -943,9 +975,11 @@ let rec emit_dec ?(in_module=false) e dec =
     );
     emit e "end";
     emit_newline e;
-    (* Restore outer scope's defined_types *)
+    (* Restore outer scope's defined_types/exns *)
     Hashtbl.reset defined_types;
-    Hashtbl.iter (fun k v -> Hashtbl.replace defined_types k v) saved_types
+    Hashtbl.iter (fun k v -> Hashtbl.replace defined_types k v) saved_types;
+    Hashtbl.reset defined_exns;
+    Hashtbl.iter (fun k v -> Hashtbl.replace defined_exns k v) saved_exns
 
   | Dlocal (priv, pub) ->
     (* Wrap private decls in a sub-module + open to avoid name conflicts *)

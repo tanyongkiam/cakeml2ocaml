@@ -56,6 +56,10 @@ let parse_cmp s =
   | "Greater" -> Greater
   | "LessEq" -> LessEq
   | "GreaterEq" -> GreaterEq
+  | "AltLess" -> AltLess
+  | "AltLessEq" -> AltLessEq
+  | "AltGreater" -> AltGreater
+  | "AltGreaterEq" -> AltGreaterEq
   | _ -> raise (Ast_error ("Unknown comparison: " ^ s))
 
 (* Parse a comparison type *)
@@ -123,6 +127,12 @@ let rec parse_op sexp =
   | Atom "Chr" -> Chr
   | Atom "ConfigGC" -> ConfigGC
   | Atom "Eval" -> Eval
+  | Atom "Asubunsafe" -> Asubunsafe
+  | Atom "Aupdateunsafe" -> Aupdateunsafe
+  | Atom "Aw8subunsafe" -> Aw8subunsafe
+  | Atom "Aw8updateunsafe" -> Aw8updateunsafe
+  | Atom "Vsubunsafe" -> Vsubunsafe
+  | Atom "XorAw8Strunsafe" -> XorAw8Strunsafe
   | Atom "FPbopFPAdd" -> FPbop FPAdd
   | Atom "FPbopFPDiv" -> FPbop FPDiv
   | Atom "FPbopFPMul" -> FPbop FPMul
@@ -136,6 +146,12 @@ let rec parse_op sexp =
   (* Test comparison: (Test cmp . type) *)
   | List [Atom "Test"; Atom cmp; Atom "."; Atom typ] ->
     Test (parse_cmp cmp, parse_comp_type typ)
+  (* Arith: (Arith op . type) *)
+  | List [Atom "Arith"; Atom arith_op; Atom "."; Atom typ] ->
+    parse_arith arith_op typ
+  (* FromTo: (FromTo type1 . type2) *)
+  | List [Atom "FromTo"; Atom from_typ; Atom "."; Atom to_typ] ->
+    parse_fromto from_typ to_typ
   (* FFI: (FFI . "name") *)
   | List [Atom "FFI"; Atom "."; Atom name] ->
     FFI (unquote name)
@@ -154,6 +170,55 @@ and parse_shift name amount =
   | "Shift64Asr" -> Shift (W64, Asr_, amount)
   | "Shift64Ror" -> Shift (W64, Ror_, amount)
   | _ -> raise (Ast_error ("Unknown shift: " ^ name))
+
+and parse_arith arith_op typ =
+  match arith_op, typ with
+  (* IntT arithmetic *)
+  | "Add", "IntT" -> OpnPlus
+  | "Sub", "IntT" -> OpnMinus
+  | "Mul", "IntT" -> OpnTimes
+  | "Div", "IntT" -> OpnDivide
+  | "Mod", "IntT" -> OpnModulo
+  (* Word8T arithmetic *)
+  | "Add", "Word8T" -> Opw8Add
+  | "Sub", "Word8T" -> Opw8Sub
+  | "And", "Word8T" -> Opw8Andw
+  | "Or", "Word8T" -> Opw8Orw
+  | "Xor", "Word8T" -> Opw8Xor
+  (* Word64T arithmetic *)
+  | "Add", "Word64T" -> Opw64Add
+  | "Sub", "Word64T" -> Opw64Sub
+  | "And", "Word64T" -> Opw64Andw
+  | "Or", "Word64T" -> Opw64Orw
+  | "Xor", "Word64T" -> Opw64Xor
+  (* Float64T binary ops *)
+  | "Add", "Float64T" -> FPbop FPAdd
+  | "Sub", "Float64T" -> FPbop FPSub
+  | "Mul", "Float64T" -> FPbop FPMul
+  | "Div", "Float64T" -> FPbop FPDiv
+  (* Float64T unary ops *)
+  | "Neg", "Float64T" -> FPuop FPNeg
+  | "Abs", "Float64T" -> FPuop FPAbs
+  | "Sqrt", "Float64T" -> FPuop FPSqrt
+  (* Float64T ternary op *)
+  | "FMA", "Float64T" -> FPtop FPFma
+  (* BoolT *)
+  | "Not", "BoolT" -> BoolNot
+  | _ -> raise (Ast_error (Printf.sprintf "Unknown Arith %s . %s" arith_op typ))
+
+and parse_fromto from_typ to_typ =
+  match from_typ, to_typ with
+  | "IntT", "Word8T" -> W8fromInt
+  | "Word8T", "IntT" -> W8toInt
+  | "IntT", "Word64T" -> W64fromInt
+  | "Word64T", "IntT" -> W64toInt
+  | "IntT", "CharT" -> Chr
+  | "CharT", "IntT" -> Ord
+  | "Float64T", "Word64T" -> FpToWord
+  | "Word64T", "Float64T" -> FpFromWord
+  | "CharT", "Word8T" -> CharToW8
+  | "Word8T", "CharT" -> W8ToChar
+  | _ -> raise (Ast_error (Printf.sprintf "Unknown FromTo %s . %s" from_typ to_typ))
 
 (* Parse a literal *)
 let parse_lit sexp =
@@ -232,9 +297,9 @@ let rec parse_exp sexp =
   | List [Atom "Let"; name_opt; value; body] ->
     let name = parse_option (function Atom s -> unquote s | s -> ast_error "Expected name" s) name_opt in
     Let (name, parse_exp value, parse_exp body)
-  | List [Atom "Log"; Atom "And"; a; b] ->
+  | List [Atom "Log"; Atom ("And" | "Andalso"); a; b] ->
     Log (And, parse_exp a, parse_exp b)
-  | List [Atom "Log"; Atom "Or"; a; b] ->
+  | List [Atom "Log"; Atom ("Or" | "Orelse"); a; b] ->
     Log (Or, parse_exp a, parse_exp b)
   | List [Atom "Raise"; e] ->
     Raise (parse_exp e)
@@ -307,7 +372,7 @@ and reconstitute_exp items =
     (* rest has value then body inlined *)
     parse_let_from_flat name rest
   | Atom "Log" :: Atom log_op :: rest ->
-    let op = match log_op with "And" -> And | "Or" -> Or | _ -> raise (Ast_error ("Unknown log op: " ^ log_op)) in
+    let op = match log_op with "And" | "Andalso" -> And | "Or" | "Orelse" -> Or | _ -> raise (Ast_error ("Unknown log op: " ^ log_op)) in
     (* two sub-expressions *)
     parse_log_from_flat op rest
   | Atom "Raise" :: rest ->
