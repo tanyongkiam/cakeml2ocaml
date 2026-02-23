@@ -466,9 +466,24 @@ and emit_con_id e id =
     emit_id tmp id;
     emit e (Buffer.contents buf)
 
+(* Emit a Z.t integer literal efficiently *)
+and emit_z_lit e s =
+  match s with
+  | "0" -> emit e "Z.zero"
+  | "1" -> emit e "Z.one"
+  | "-1" -> emit e "Z.minus_one"
+  | _ ->
+    (* If it fits in a native int, use Z.of_int *)
+    (try
+       let n = int_of_string s in
+       ignore n;
+       emit e "(Z.of_int ("; emit e s; emit e "))"
+     with Failure _ ->
+       emit e "(Z.of_string \""; emit e s; emit e "\")")
+
 and emit_lit_pat e lit =
   match lit with
-  | IntLit s -> emit e "(Z.of_string \""; emit e s; emit e "\")"
+  | IntLit s -> emit_z_lit e s
   | StrLit s -> emit_char e '"'; emit e (ocaml_escape_string s); emit_char e '"'
   | CharLit s -> emit_char e '\''; emit e (ocaml_escape_char s); emit_char e '\''
   | Word8Lit n -> emit e (string_of_int n)
@@ -478,8 +493,7 @@ and emit_lit_pat e lit =
 (* Emit a literal in expression context *)
 let emit_lit e lit =
   match lit with
-  | IntLit s ->
-    emit e "(Z.of_string \""; emit e s; emit e "\")"
+  | IntLit s -> emit_z_lit e s
   | StrLit s ->
     emit_char e '"'; emit e (ocaml_escape_string s); emit_char e '"'
   | CharLit s ->
