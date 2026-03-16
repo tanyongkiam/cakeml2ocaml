@@ -271,6 +271,80 @@ gcc -o /tmp/hello /tmp/hello.S basis_ffi.c -lm
 ```
 
 
+## Compiler hook system
+
+The generated compiler supports injecting custom passes at 8 IL boundaries
+via mutable hooks.  This is used to intercept and transform intermediate
+representations without modifying `cake64.ml` directly.
+
+### Prerequisites
+
+```sh
+# 1. Build the runtime
+cd runtime && make && cd ..
+
+# 2. Generate cake64.ml (if not already present)
+make transpile
+
+# 3. Requires: ocamlfind, zarith, unix
+```
+
+### Building a hooked compiler
+
+```sh
+cd generated
+
+# Build with a hook setup file (and optional pass files):
+./build_hooked.sh [pass_files...] <hook_setup.ml> [output_binary]
+
+# Example: build the labLang assembly dumper
+./build_hooked.sh passes/asm_dump_setup.ml cake64_asm_dump
+```
+
+The build script:
+1. Compiles `hook_ref.ml` (mutable hooks, before cake64)
+2. Patches `cake64.ml` to call hooks at IL boundaries
+3. Compiles the patched `cake64.ml` (requires `ulimit -s unlimited`)
+4. Compiles IL types, conversion modules, pass files, and hook setup
+5. Links everything into the output binary
+
+### Running a hooked compiler
+
+```sh
+echo 'val x = 1;' | bash -c 'ulimit -s unlimited; ./cake64_asm_dump'
+```
+
+### Hook points
+
+| Hook | IL boundary | Variable | Type |
+|------|-------------|----------|------|
+| `flat_hook` | after source_to_flat | v50 | `flatLang_dec list` |
+| `clos_hook` | after flat_to_clos | v47 | `closLang_exp list` |
+| `bvl_hook` | after clos_to_bvl | v42 | `(name * (arity * bvl_exp)) list` |
+| `bvi_hook` | after bvl_to_bvi | v35 | `(name * (arity * bvi_exp)) list` |
+| `data_hook` | after bvi_to_data | v22 | `(name * (arity * dataLang_prog)) list` |
+| `word_hook` | after data_to_word | v18 | `(name * (arity * wordLang_prog)) list` |
+| `stack_hook` | after word_to_stack | v7 | `(name * stackLang_prog) list` |
+| `lab_hook` | after stack_to_lab | v4 | `labLang_sec list` |
+
+### Writing a hook setup
+
+A hook setup module registers hooks at module init time (before `main()` runs):
+
+```ocaml
+let () =
+  Hook_ref.lab_hook := (fun prog_obj ->
+    let secs = Obj.obj prog_obj in
+    let clean = List.map Lab_lang_conv.sec_of_gen secs in
+    (* ... transform clean ... *)
+    let gen = List.map Lab_lang_conv.sec_to_gen clean in
+    Obj.repr gen)
+```
+
+Clean IL type definitions are in `il_types/` (e.g. `lab_lang.ml`, `common.ml`).
+Conversion functions are in `il_types/*_conv.ml`.
+
+
 ## Bootstrap test
 
 `test_bootstrap.sh` verifies that the OCaml-transpiled compiler can

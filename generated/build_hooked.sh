@@ -148,6 +148,11 @@ fi
 
 # Step 6: Compile hook setup and main entry
 echo "[6/7] Compiling hook_setup and main_entry..."
+# Add setup file directory to include paths
+sdir="$(dirname "$SETUP_FILE")"
+if [ "$sdir" != "." ] && [[ ! "$PASS_IFLAGS" == *"-I $sdir"* ]]; then
+    PASS_IFLAGS="$PASS_IFLAGS -I $sdir"
+fi
 $OC -c $OFLAGS $IFLAGS $PASS_IFLAGS "$SETUP_FILE"
 $OC -c $OFLAGS $IFLAGS $PASS_IFLAGS main_entry.ml
 
@@ -160,7 +165,7 @@ for f in "${PASS_FILES[@]}"; do
     PASS_CMXS="$PASS_CMXS ${f%.ml}.cmx"
 done
 
-SETUP_CMX="$(basename "${SETUP_FILE%.ml}").cmx"
+SETUP_CMX="${SETUP_FILE%.ml}.cmx"
 
 # Collect conv .cmx files that exist (some may have been skipped)
 CONV_CMXS=""
@@ -187,4 +192,4 @@ bash -c "ulimit -s unlimited; $OC -linkpkg $OFLAGS $IFLAGS $PASS_IFLAGS \
 
 echo
 echo "Done! Binary: $OUTPUT"
-echo "Test with: echo 'val x = 1;' | ulimit -s unlimited && ./$OUTPUT"
+echo "Test with: bash -c 'ulimit -s unlimited; echo \"val x = 1;\" | ./$OUTPUT'"
