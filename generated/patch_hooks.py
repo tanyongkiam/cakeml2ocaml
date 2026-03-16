@@ -26,18 +26,30 @@ HOOKS = [
     ("stack_to_lab",   "v4",  "lab_hook"),
 ]
 
+# Extra variable saves at specific markers.
+# These store values in Hook_ref storage refs for later use by hooks.
+# (marker_name, [(variable, ref_name), ...])
+SAVES = {
+    "word_to_stack": [("v12", "bitmaps"), ("v15", "names")],
+}
+
 def patch(text):
     for marker, var, hook in HOOKS:
         old = MARKER_TEMPLATE.format(marker=marker)
         new = (old +
                f'let {var} = (Obj.obj (!Hook_ref.{hook} (Obj.repr {var}))) in ')
+        # Add extra saves for this marker
+        for save_var, save_ref in SAVES.get(marker, []):
+            new += f'let () = (Hook_ref.{save_ref} := (Obj.repr {save_var})) in '
         count = text.count(old)
         if count == 0:
             print(f"ERROR: marker '{marker}' not found", file=sys.stderr)
             sys.exit(1)
         # Replace only first occurrence (backend_compile)
         text = text.replace(old, new, 1)
-        print(f"  Hooked {var} at {marker} ({hook})")
+        saves = SAVES.get(marker, [])
+        save_info = f" + saved {', '.join(v for v,_ in saves)}" if saves else ""
+        print(f"  Hooked {var} at {marker} ({hook}){save_info}")
 
     # Remove standalone main entry point
     text = text.replace('\nlet () = (main (()))\n', '\n')

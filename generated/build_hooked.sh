@@ -89,12 +89,12 @@ fi
 # Patch all 8 hooks using Python (exact string matching, no sed regex issues)
 python3 patch_hooks.py cake64.ml
 
-# Verify patches applied
+# Verify patches applied (8 hooks + extra saves)
 HOOKS_FOUND=$(grep -o 'Hook_ref\.' cake64.ml | wc -l)
-if [ "$HOOKS_FOUND" -eq 8 ]; then
-    echo "  All 8 hooks verified: OK"
+if [ "$HOOKS_FOUND" -ge 8 ]; then
+    echo "  $HOOKS_FOUND Hook_ref references verified: OK"
 else
-    echo "  ERROR: Expected 8 hooks, found $HOOKS_FOUND"
+    echo "  ERROR: Expected at least 8 Hook_ref references, found $HOOKS_FOUND"
     mv cake64.ml.bak cake64.ml
     if [ -f cake64.cmi.orig ]; then mv cake64.cmi.orig cake64.cmi; fi
     exit 1
@@ -192,4 +192,4 @@ bash -c "ulimit -s unlimited; $OC -linkpkg $OFLAGS $IFLAGS $PASS_IFLAGS \
 
 echo
 echo "Done! Binary: $OUTPUT"
-echo "Test with: bash -c 'ulimit -s unlimited; echo \"val x = 1;\" | ./$OUTPUT'"
+echo "Test with: bash -c 'ulimit -s unlimited; ./$OUTPUT < input.sml'"

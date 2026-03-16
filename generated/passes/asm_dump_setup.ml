@@ -146,13 +146,52 @@ let dump_sections ch secs =
     ) lines
   ) secs
 
+let dump_bitmaps ch (bitmaps : int64 list) =
+  let len = List.length bitmaps in
+  Printf.fprintf ch "\n; === Data segment: %d bitmap words ===\n" len;
+  List.iteri (fun i w ->
+    if i < 20 || i >= len - 5 then
+      Printf.fprintf ch ";   [%d] 0x%016Lx\n" i w
+    else if i = 20 then
+      Printf.fprintf ch ";   ... (%d more words) ...\n" (len - 25)
+  ) bitmaps
+
+let dump_names ch (names : string Common.sptree_spt) =
+  (* Flatten sptree to list — iterative to avoid stack overflow *)
+  let acc = ref [] in
+  let stack = Stack.create () in
+  Stack.push (Z.zero, names) stack;
+  while not (Stack.is_empty stack) do
+    let (key, node) = Stack.pop stack in
+    (match node with
+    | Common.Ln -> ()
+    | Common.Ls v -> acc := (key, v) :: !acc
+    | Common.Bn (l, r) ->
+      Stack.push (Z.add (Z.mul (Z.of_int 2) key) (Z.of_int 2), r) stack;
+      Stack.push (Z.add (Z.mul (Z.of_int 2) key) Z.one, l) stack
+    | Common.Bs (l, v, r) ->
+      Stack.push (Z.add (Z.mul (Z.of_int 2) key) (Z.of_int 2), r) stack;
+      Stack.push (Z.add (Z.mul (Z.of_int 2) key) Z.one, l) stack;
+      acc := (key, v) :: !acc)
+  done;
+  let entries = List.sort (fun (a, _) (b, _) -> Z.compare a b) !acc in
+  Printf.fprintf ch "\n; === Names: %d entries ===\n" (List.length entries);
+  List.iter (fun (k, name) ->
+    Printf.fprintf ch ";   %s -> \"%s\"\n" (Z.to_string k) name
+  ) entries
+
 let () =
   Hook_ref.lab_hook := (fun prog_obj ->
     let secs = Obj.obj prog_obj in
     (* Convert from generated types to clean types *)
     let clean = List.map Lab_lang_conv.sec_of_gen secs in
-    (* Dump to stdout *)
+    (* Retrieve bitmaps and names saved at word_to_stack boundary *)
+    let bitmaps : int64 list = Obj.obj !(Hook_ref.bitmaps) in
+    let names : string Common.sptree_spt = Obj.obj !(Hook_ref.names) in
+    (* Dump everything to stdout *)
     dump_sections stdout clean;
+    dump_bitmaps stdout bitmaps;
+    dump_names stdout names;
     flush stdout;
     (* Exit before lab_to_target runs *)
     exit 0)

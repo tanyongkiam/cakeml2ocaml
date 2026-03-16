@@ -11,3 +11,8 @@ let data_hook  : (Obj.t -> Obj.t) ref = ref Fun.id
 let word_hook  : (Obj.t -> Obj.t) ref = ref Fun.id
 let stack_hook : (Obj.t -> Obj.t) ref = ref Fun.id
 let lab_hook   : (Obj.t -> Obj.t) ref = ref Fun.id
+
+(* Storage refs for data captured at IL boundaries.
+   Saved by patched code, read by hooks that run later. *)
+let bitmaps : Obj.t ref = ref (Obj.repr ())
+let names   : Obj.t ref = ref (Obj.repr ())
