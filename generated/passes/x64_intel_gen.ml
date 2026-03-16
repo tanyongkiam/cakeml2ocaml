@@ -101,13 +101,11 @@ let emit_assembly ch secs bitmaps names =
       | Lab_lang.Label (sec, lab, len) ->
         Printf.fprintf ch "L%s_%s:\n" (Z.to_string sec) (Z.to_string lab)
       | Lab_lang.Asm (acbw, _, _) ->
-        Printf.fprintf ch "  /* Asm */\n";
         (match acbw with
          | Lab_lang.Asmi (Common.Inst (Common.Skip)) -> ()
          | Lab_lang.Asmi (Common.Inst (Common.Const (r, w))) ->
            Printf.fprintf ch "  mov %s, %Ld\n" (pp_reg r) w
          | Lab_lang.Asmi (Common.Inst (Common.Arith (Common.Binop (op, d, s, ri)))) ->
-           Printf.fprintf ch "  /* Binop %s = %s %s */\n" (pp_reg d) (pp_reg s) (pp_reg_imm ri);
            let op_str = match op with
              | Common.Add -> "add" | Common.Sub -> "sub"
              | Common.And -> "and" | Common.Or -> "or" | Common.Xor -> "xor"
@@ -119,9 +117,6 @@ let emit_assembly ch secs bitmaps names =
              Printf.fprintf ch "  %s %s, %s\n" op_str (pp_reg d) (pp_reg_imm ri)
            end
          | Lab_lang.Asmi (Common.Inst (Common.Arith (Common.Shift (sh, d, s, ri)))) ->
-           let sh_name = match sh with Common.Lsl -> "lsl" | Common.Lsr -> "lsr" | Common.Asr -> "asr" | Common.Ror -> "ror" in
-           let ri_name = match ri with Common.Reg _ -> "cl" | Common.Imm w -> pp_imm64 w in
-           Printf.fprintf ch "  /* Shift %s %s, %s, %s */\n" sh_name (pp_reg d) (pp_reg s) ri_name;
            let sh_str = match sh with
              | Common.Lsl -> "shl" | Common.Lsr -> "shr" | Common.Asr -> "sar" | Common.Ror -> "ror"
            in
@@ -174,7 +169,7 @@ let emit_assembly ch secs bitmaps names =
             | Common.Load8 -> Printf.fprintf ch "  movzx %s, BYTE PTR [%s + %Ld]\n" (pp_reg r) (pp_reg a) off
             | Common.Store -> Printf.fprintf ch "  mov QWORD PTR [%s + %Ld], %s\n" (pp_reg a) off (pp_reg r)
             | Common.Store8 -> Printf.fprintf ch "  mov BYTE PTR [%s + %Ld], %s\n" (pp_reg a) off (pp_reg_byte r)
-            | _ -> Printf.fprintf ch "  /* TODO mem something */\n")
+            | _ -> ())
          | Lab_lang.Asmi (Common.Jump w) ->
            Printf.fprintf ch "  jmp .+%Ld\n" w
          | Lab_lang.Asmi (Common.Jumpcmp (c, r, ri, w)) ->
@@ -183,23 +178,21 @@ let emit_assembly ch secs bitmaps names =
            else
              Printf.fprintf ch "  cmp %s, %s\n  j%s .+%Ld\n" (pp_reg r) (pp_reg_imm ri) (pp_cmp c) w
          | Lab_lang.Asmi (Common.Loc (r, w)) ->
-           Printf.fprintf ch "  /* TODO loc %s, %Ld */\n" (pp_reg r) w
+           ()
          | Lab_lang.Asmi (Common.Call w) ->
            Printf.fprintf ch "  call .+%Ld\n" w
          | Lab_lang.Asmi (Common.Jumpreg r) ->
            Printf.fprintf ch "  jmp %s\n" (pp_reg r)
          | Lab_lang.Cbw (a, b) ->
            Printf.fprintf ch "  mov BYTE PTR [%s + 0], %s\n" (pp_reg a) (pp_reg_byte b)
-         | Lab_lang.Sharemem _ -> Printf.fprintf ch "  /* TODO Sharemem */\n"
-         | _ -> Printf.fprintf ch "  /* TODO asm  */\n")
+         | Lab_lang.Sharemem _ -> ()
+         | _ -> ())
       | Lab_lang.Labasm (awl, _, _, _) ->
         (match awl with
          | Lab_lang.Halt -> Printf.fprintf ch "  jmp cake_exit\n"
          | Lab_lang.Jump l -> Printf.fprintf ch "  jmp %s\n" (pp_lab l)
          | Lab_lang.Call l -> Printf.fprintf ch "  call %s\n" (pp_lab l)
          | Lab_lang.Jumpcmp (c, r, ri, l) ->
-           let c_str = match c with Common.Equal -> "Equal" | Common.Less -> "Less" | Common.Lower -> "Lower" | Common.Test -> "Test" | Common.Notequal -> "Notequal" | Common.Notless -> "Notless" | Common.Notlower -> "Notlower" | Common.Nottest -> "Nottest" in
-           Printf.fprintf ch "  /* Jumpcmp %s %s %s */\n" c_str (pp_reg r) (pp_reg_imm ri);
            if c = Common.Test || c = Common.Nottest then
              Printf.fprintf ch "  test %s, %s\n  j%s %s\n" (pp_reg r) (pp_reg_imm ri) (pp_cmp c) (pp_lab l)
            else
@@ -210,7 +203,7 @@ let emit_assembly ch secs bitmaps names =
            
          | Lab_lang.Locvalue (r, l) -> Printf.fprintf ch "  lea %s, [rip + %s]\n" (pp_reg r) (pp_lab l)
          | Lab_lang.Install -> Printf.fprintf ch "  jmp cake_clear\n"
-         | _ -> Printf.fprintf ch "  /* TODO labasm  */\n")
+         | _ -> ())
     ) lines
   ) secs;
   
