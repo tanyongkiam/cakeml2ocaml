@@ -75,8 +75,31 @@ let pp_reg_byte r =
 
 let pp_imm64 w = Printf.sprintf "%Ld" w
 
-let pp_lab (Lab_lang.Lab (s, l)) =
-  Printf.sprintf "L%s_%s" (Z.to_string s) (Z.to_string l)
+let rec spt_lookup k = function
+  | Common.Ln -> None
+  | Common.Ls v -> if Z.equal k Z.zero then Some v else None
+  | Common.Bn (t1, t2) ->
+    if Z.equal k Z.zero then None
+    else let k' = Z.div (Z.sub k Z.one) (Z.of_int 2) in
+    if Z.is_even k then spt_lookup k' t1 else spt_lookup k' t2
+  | Common.Bs (t1, v, t2) ->
+    if Z.equal k Z.zero then Some v
+    else let k' = Z.div (Z.sub k Z.one) (Z.of_int 2) in
+    if Z.is_even k then spt_lookup k' t1 else spt_lookup k' t2
+
+let sanitize_name s =
+  String.init (String.length s) (fun i ->
+    let c = s.[i] in
+    if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c = '_' then c
+    else '_')
+
+let pp_sec_name names sec =
+  match spt_lookup sec names with
+  | Some name -> Printf.sprintf "%s_%s" (sanitize_name name) (Z.to_string sec)
+  | None -> Z.to_string sec
+
+let pp_lab names (Lab_lang.Lab (s, l)) =
+  Printf.sprintf "L%s_%s" (pp_sec_name names s) (Z.to_string l)
 
 let pp_reg_imm = function
   | Common.Reg r -> pp_reg r
@@ -92,17 +115,17 @@ let emit_assembly ch secs bitmaps names =
   Printf.fprintf ch "%s" prelude;
   Printf.fprintf ch ".globl cake_main\n";
   Printf.fprintf ch "cake_main:\n";
-  Printf.fprintf ch "  jmp L0_0\n\n";
+  Printf.fprintf ch "  jmp L%s_0\n\n" (pp_sec_name names Z.zero);
 
   List.iter (fun (Lab_lang.Section (name, lines)) ->
     Printf.fprintf ch ".p2align 3\n";
-    Printf.fprintf ch "L%s_0:\n" (Z.to_string name);
+    Printf.fprintf ch "L%s_0:\n" (pp_sec_name names name);
     List.iter (fun line ->
       match line with
       | Lab_lang.Label (sec, lab, len) ->
         (* Internal labels do not need alignment (CakeML aligns them with NOPs) *)
         assert (not (Z.equal lab Z.zero));
-        Printf.fprintf ch "L%s_%s:\n" (Z.to_string sec) (Z.to_string lab)
+        Printf.fprintf ch "L%s_%s:\n" (pp_sec_name names sec) (Z.to_string lab)
       | Lab_lang.Asm (acbw, _, _) ->
         (match acbw with
          | Lab_lang.Asmi (Common.Inst (Common.Skip)) -> ()
@@ -193,18 +216,18 @@ let emit_assembly ch secs bitmaps names =
       | Lab_lang.Labasm (awl, _, _, _) ->
         (match awl with
          | Lab_lang.Halt -> Printf.fprintf ch "  jmp cake_exit\n"
-         | Lab_lang.Jump l -> Printf.fprintf ch "  jmp %s\n" (pp_lab l)
-         | Lab_lang.Call l -> Printf.fprintf ch "  call %s\n" (pp_lab l)
+         | Lab_lang.Jump l -> Printf.fprintf ch "  jmp %s\n" (pp_lab names l)
+         | Lab_lang.Call l -> Printf.fprintf ch "  call %s\n" (pp_lab names l)
          | Lab_lang.Jumpcmp (c, r, ri, l) ->
            if c = Common.Test || c = Common.Nottest then
-             Printf.fprintf ch "  test %s, %s\n  j%s %s\n" (pp_reg r) (pp_reg_imm ri) (pp_cmp c) (pp_lab l)
+             Printf.fprintf ch "  test %s, %s\n  j%s %s\n" (pp_reg r) (pp_reg_imm ri) (pp_cmp c) (pp_lab names l)
            else
-             Printf.fprintf ch "  cmp %s, %s\n  j%s %s\n" (pp_reg r) (pp_reg_imm ri) (pp_cmp c) (pp_lab l)
+             Printf.fprintf ch "  cmp %s, %s\n  j%s %s\n" (pp_reg r) (pp_reg_imm ri) (pp_cmp c) (pp_lab names l)
          | Lab_lang.Callffi name ->
            
            Printf.fprintf ch "  call cdecl(ffi%s)\n" name;
            
-         | Lab_lang.Locvalue (r, l) -> Printf.fprintf ch "  lea %s, [rip + %s]\n" (pp_reg r) (pp_lab l)
+         | Lab_lang.Locvalue (r, l) -> Printf.fprintf ch "  lea %s, [rip + %s]\n" (pp_reg r) (pp_lab names l)
          | Lab_lang.Install -> Printf.fprintf ch "  jmp cake_clear\n"
          | _ -> ())
     ) lines
