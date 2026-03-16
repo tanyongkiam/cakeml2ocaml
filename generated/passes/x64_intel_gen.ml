@@ -95,10 +95,13 @@ let emit_assembly ch secs bitmaps names =
   Printf.fprintf ch "  jmp L0_0\n\n";
 
   List.iter (fun (Lab_lang.Section (name, lines)) ->
+    Printf.fprintf ch ".p2align 3\n";
     Printf.fprintf ch "L%s_0:\n" (Z.to_string name);
     List.iter (fun line ->
       match line with
       | Lab_lang.Label (sec, lab, len) ->
+        (* Internal labels do not need alignment (CakeML aligns them with NOPs) *)
+        assert (not (Z.equal lab Z.zero));
         Printf.fprintf ch "L%s_%s:\n" (Z.to_string sec) (Z.to_string lab)
       | Lab_lang.Asm (acbw, _, _) ->
         (match acbw with
