@@ -1,0 +1,12 @@
+# Transpiled compiler (regenerate with: make -C .. transpile)
+cake64.ml
+cake32.ml
+
+# OCaml build artifacts
+*.cmi
+*.cmx
+*.o
+*.cmi.orig
+
+# Backup files
+*.bak
