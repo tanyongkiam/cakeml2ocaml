@@ -1,7 +1,11 @@
 (* Conversion functions between Common clean types and generated cake64.ml types.
    Types that are identical (no renaming needed) can use direct casting via
    Obj.magic since they have the same runtime representation.
-   Only types with renamed constructors need actual conversion functions. *)
+   Only types with renamed constructors need actual conversion functions.
+
+   NOTE: Some types from earlier cake64.ml versions have been removed:
+   ast_temp_arith, ast_opn, ast_opw, ast_fp_uop, ast_fp_bop, ast_fp_top, ast_fp_cmp.
+   Their conversion functions are commented out. *)
 
 module G = Cake64
 
@@ -17,42 +21,7 @@ let ast_test_to_gen : Common.ast_test -> G.ast_test = function
   | Common.Compare ob -> G.Compare (Obj.magic ob)
   | Common.Equal -> G.Equal_1
 
-(* -- ast_temp_arith: *_1/*_2 <-> clean -- *)
-
-let ast_temp_arith_of_gen : G.ast_temp_arith -> Common.ast_temp_arith = function
-  | G.Fma -> Common.Fma
-  | G.Sqrt -> Common.Sqrt
-  | G.Abs_2 -> Common.Abs
-  | G.Not -> Common.Not
-  | G.Or_1 -> Common.Or
-  | G.Xor_1 -> Common.Xor
-  | G.And_1 -> Common.And
-  | G.Neg -> Common.Neg
-  | G.Mod -> Common.Mod
-  | G.Div_1 -> Common.Div
-  | G.Mul -> Common.Mul
-  | G.Sub_1 -> Common.Sub
-  | G.Add_1 -> Common.Add
-
-let ast_temp_arith_to_gen : Common.ast_temp_arith -> G.ast_temp_arith = function
-  | Common.Fma -> G.Fma
-  | Common.Sqrt -> G.Sqrt
-  | Common.Abs -> G.Abs_2
-  | Common.Not -> G.Not
-  | Common.Or -> G.Or_1
-  | Common.Xor -> G.Xor_1
-  | Common.And -> G.And_1
-  | Common.Neg -> G.Neg
-  | Common.Mod -> G.Mod
-  | Common.Div -> G.Div_1
-  | Common.Mul -> G.Mul
-  | Common.Sub -> G.Sub_1
-  | Common.Add -> G.Add_1
-
 (* -- Types with identical constructors: use Obj.magic for zero-cost conversion -- *)
-(* ast_lit, ast_shift, ast_opb, ast_opn, ast_opw, ast_word_size,
-   ast_fp_uop, ast_fp_bop, ast_fp_top, ast_fp_cmp,
-   ast_thunk_mode, ast_thunk_op, ast_prim_type *)
 
 let ast_lit_of_gen : G.ast_lit -> Common.ast_lit = Obj.magic
 let ast_lit_to_gen : Common.ast_lit -> G.ast_lit = Obj.magic
@@ -63,26 +32,12 @@ let ast_shift_to_gen : Common.ast_shift -> G.ast_shift = Obj.magic
 let ast_opb_of_gen : G.ast_opb -> Common.ast_opb = Obj.magic
 let ast_opb_to_gen : Common.ast_opb -> G.ast_opb = Obj.magic
 
-let ast_opn_of_gen : G.ast_opn -> Common.ast_opn = Obj.magic
-let ast_opn_to_gen : Common.ast_opn -> G.ast_opn = Obj.magic
-
-let ast_opw_of_gen : G.ast_opw -> Common.ast_opw = Obj.magic
-let ast_opw_to_gen : Common.ast_opw -> G.ast_opw = Obj.magic
+(* ast_opn, ast_opw: removed from current cake64.ml *)
 
 let ast_word_size_of_gen : G.ast_word_size -> Common.ast_word_size = Obj.magic
 let ast_word_size_to_gen : Common.ast_word_size -> G.ast_word_size = Obj.magic
 
-let ast_fp_uop_of_gen : G.ast_fp_uop -> Common.ast_fp_uop = Obj.magic
-let ast_fp_uop_to_gen : Common.ast_fp_uop -> G.ast_fp_uop = Obj.magic
-
-let ast_fp_bop_of_gen : G.ast_fp_bop -> Common.ast_fp_bop = Obj.magic
-let ast_fp_bop_to_gen : Common.ast_fp_bop -> G.ast_fp_bop = Obj.magic
-
-let ast_fp_top_of_gen : G.ast_fp_top -> Common.ast_fp_top = Obj.magic
-let ast_fp_top_to_gen : Common.ast_fp_top -> G.ast_fp_top = Obj.magic
-
-let ast_fp_cmp_of_gen : G.ast_fp_cmp -> Common.ast_fp_cmp = Obj.magic
-let ast_fp_cmp_to_gen : Common.ast_fp_cmp -> G.ast_fp_cmp = Obj.magic
+(* ast_fp_uop, ast_fp_bop, ast_fp_top, ast_fp_cmp: removed from current cake64.ml *)
 
 let ast_thunk_mode_of_gen : G.ast_thunk_mode -> Common.ast_thunk_mode = Obj.magic
 let ast_thunk_mode_to_gen : Common.ast_thunk_mode -> G.ast_thunk_mode = Obj.magic
@@ -123,20 +78,20 @@ let namespace_to_gen : ('m, 'n, 'w) Common.namespace_namespace -> ('m, 'n, 'w) G
 let asm_memop_of_gen : G.M_to_word64Prog.asm_memop -> Common.asm_memop = Obj.magic
 let asm_memop_to_gen : Common.asm_memop -> G.M_to_word64Prog.asm_memop = Obj.magic
 
-(* asm_binop: Add_2/Sub_2/And_2/Or_2/Xor_2 <-> Add/Sub/And/Or/Xor *)
+(* asm_binop: Add_1/Sub_1/And_1/Or_1/Xor_1 <-> Add/Sub/And/Or/Xor *)
 let asm_binop_of_gen : G.M_to_word64Prog.asm_binop -> Common.asm_binop = function
-  | G.M_to_word64Prog.Xor_2 -> Common.Xor
-  | G.M_to_word64Prog.Or_2 -> Common.Or
-  | G.M_to_word64Prog.And_2 -> Common.And
-  | G.M_to_word64Prog.Sub_2 -> Common.Sub
-  | G.M_to_word64Prog.Add_2 -> Common.Add
+  | G.M_to_word64Prog.Xor_1 -> Common.Xor
+  | G.M_to_word64Prog.Or_1 -> Common.Or
+  | G.M_to_word64Prog.And_1 -> Common.And
+  | G.M_to_word64Prog.Sub_1 -> Common.Sub
+  | G.M_to_word64Prog.Add_1 -> Common.Add
 
 let asm_binop_to_gen : Common.asm_binop -> G.M_to_word64Prog.asm_binop = function
-  | Common.Xor -> G.M_to_word64Prog.Xor_2
-  | Common.Or -> G.M_to_word64Prog.Or_2
-  | Common.And -> G.M_to_word64Prog.And_2
-  | Common.Sub -> G.M_to_word64Prog.Sub_2
-  | Common.Add -> G.M_to_word64Prog.Add_2
+  | Common.Xor -> G.M_to_word64Prog.Xor_1
+  | Common.Or -> G.M_to_word64Prog.Or_1
+  | Common.And -> G.M_to_word64Prog.And_1
+  | Common.Sub -> G.M_to_word64Prog.Sub_1
+  | Common.Add -> G.M_to_word64Prog.Add_1
 
 (* store_name: identical constructors *)
 let store_name_of_gen : G.M_to_word64Prog.stackLang_store_name -> Common.store_name = Obj.magic
@@ -183,7 +138,7 @@ let asm_arith_of_gen : G.M_to_word64Prog.asm_arith -> Common.asm_arith = functio
   | G.M_to_word64Prog.Longdiv (a, b, c, d, e) -> Common.Longdiv (a, b, c, d, e)
   | G.M_to_word64Prog.Longmul (a, b, c, d) -> Common.Longmul (a, b, c, d)
   | G.M_to_word64Prog.Div_2 (a, b, c) -> Common.Div (a, b, c)
-  | G.M_to_word64Prog.Shift_3 (s, a, b, c) -> Common.Shift (ast_shift_of_gen s, a, b, c)
+  | G.M_to_word64Prog.Shift_3 (s, a, b, c) -> Common.Shift (ast_shift_of_gen s, a, b, asm_reg_imm_of_gen c)
   | G.M_to_word64Prog.Binop (op, a, b, ri) -> Common.Binop (asm_binop_of_gen op, a, b, asm_reg_imm_of_gen ri)
 
 let asm_arith_to_gen : Common.asm_arith -> G.M_to_word64Prog.asm_arith = function
@@ -193,7 +148,7 @@ let asm_arith_to_gen : Common.asm_arith -> G.M_to_word64Prog.asm_arith = functio
   | Common.Longdiv (a, b, c, d, e) -> G.M_to_word64Prog.Longdiv (a, b, c, d, e)
   | Common.Longmul (a, b, c, d) -> G.M_to_word64Prog.Longmul (a, b, c, d)
   | Common.Div (a, b, c) -> G.M_to_word64Prog.Div_2 (a, b, c)
-  | Common.Shift (s, a, b, c) -> G.M_to_word64Prog.Shift_3 (ast_shift_to_gen s, a, b, c)
+  | Common.Shift (s, a, b, c) -> G.M_to_word64Prog.Shift_3 (ast_shift_to_gen s, a, b, asm_reg_imm_to_gen c)
   | Common.Binop (op, a, b, ri) -> G.M_to_word64Prog.Binop (asm_binop_to_gen op, a, b, asm_reg_imm_to_gen ri)
 
 (* asm_inst: Arith_1/Const_3 <-> Arith/Const *)

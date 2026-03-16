@@ -12,7 +12,7 @@ compiler_for_eval which we don't hook).
 
 import sys
 
-MARKER_TEMPLATE = '"finished: {marker}" ((Cakeml_runtime.aw8alloc (Z.of_string "0") 0))) in '
+MARKER_TEMPLATE = '"finished: {marker}" ((Cakeml_runtime.aw8alloc Z.zero 0))) in '
 
 # (marker_name, hooked_variable, hook_ref_name)
 HOOKS = [

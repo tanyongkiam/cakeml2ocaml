@@ -151,7 +151,7 @@ type asm_arith =
   | Longdiv of Z.t * Z.t * Z.t * Z.t * Z.t
   | Longmul of Z.t * Z.t * Z.t * Z.t
   | Div of Z.t * Z.t * Z.t
-  | Shift of ast_shift * Z.t * Z.t * Z.t
+  | Shift of ast_shift * Z.t * Z.t * asm_reg_imm
   | Binop of asm_binop * Z.t * Z.t * asm_reg_imm
 
 type asm_inst =

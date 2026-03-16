@@ -29,6 +29,9 @@ OC="ocamlfind ocamlopt -package zarith,unix"
 OFLAGS="-O2 -g"
 IFLAGS="-I ../runtime -I il_types -I ."
 
+# Will be extended with pass file directories
+PASS_IFLAGS=""
+
 # Parse arguments: all .ml files are sources, last non-.ml arg is output name
 PASS_FILES=()
 SETUP_FILE=""
@@ -78,6 +81,11 @@ make -s -f Makefile il_types 2>&1
 echo "[3/7] Patching and compiling cake64.ml (this may take a while)..."
 cp cake64.ml cake64.ml.bak
 
+# Save original cake64.cmi so conv modules stay compatible
+if [ -f cake64.cmi ]; then
+    cp cake64.cmi cake64.cmi.orig
+fi
+
 # Patch all 8 hooks using Python (exact string matching, no sed regex issues)
 python3 patch_hooks.py cake64.ml
 
@@ -88,6 +96,7 @@ if [ "$HOOKS_FOUND" -eq 8 ]; then
 else
     echo "  ERROR: Expected 8 hooks, found $HOOKS_FOUND"
     mv cake64.ml.bak cake64.ml
+    if [ -f cake64.cmi.orig ]; then mv cake64.cmi.orig cake64.cmi; fi
     exit 1
 fi
 
@@ -98,16 +107,40 @@ bash -c "ulimit -s unlimited; $OC -c $OFLAGS -I ../runtime cake64.ml"
 mv cake64.ml.bak cake64.ml
 echo "  Restored original cake64.ml"
 
-# Step 4: Compile conv modules
+# Step 4: Build conv modules
 echo "[4/7] Building conv modules..."
-make -s -f Makefile conv 2>&1
+# Clean up stale .cmi.orig
+if [ -f cake64.cmi.orig ]; then rm cake64.cmi.orig; fi
+# Rebuild only the conv modules needed for lab-level passes
+# (common_conv and lab_lang_conv; the others may reference removed types)
+CONV_MODS="common_conv lab_lang_conv"
+for mod in $CONV_MODS; do
+    echo "  il_types/${mod}.ml"
+    $OC -c $OFLAGS -I il_types -I . il_types/${mod}.ml
+done
+# Build other conv modules only if they compile (best-effort)
+for mod in clos_lang_conv flat_lang_conv bvl_lang_conv bvi_lang_conv \
+           data_lang_conv word_lang_conv stack_lang_conv; do
+    if $OC -c $OFLAGS -I il_types -I . il_types/${mod}.ml 2>/dev/null; then
+        echo "  il_types/${mod}.ml (ok)"
+    else
+        echo "  il_types/${mod}.ml (skipped — type mismatch)"
+    fi
+done
 
 # Step 5: Compile user pass files
 if [ ${#PASS_FILES[@]} -gt 0 ]; then
     echo "[5/7] Compiling user pass files..."
+    # Pre-collect all unique pass directories for include paths
+    for f in "${PASS_FILES[@]}"; do
+        pdir="$(dirname "$f")"
+        if [ "$pdir" != "." ] && [[ ! "$PASS_IFLAGS" == *"-I $pdir"* ]]; then
+            PASS_IFLAGS="$PASS_IFLAGS -I $pdir"
+        fi
+    done
     for f in "${PASS_FILES[@]}"; do
         echo "  $f"
-        $OC -c $OFLAGS $IFLAGS "$f"
+        $OC -c $OFLAGS $IFLAGS $PASS_IFLAGS "$f"
     done
 else
     echo "[5/7] No user pass files (skipped)"
@@ -115,32 +148,38 @@ fi
 
 # Step 6: Compile hook setup and main entry
 echo "[6/7] Compiling hook_setup and main_entry..."
-$OC -c $OFLAGS $IFLAGS "$SETUP_FILE"
-$OC -c $OFLAGS $IFLAGS main_entry.ml
+$OC -c $OFLAGS $IFLAGS $PASS_IFLAGS "$SETUP_FILE"
+$OC -c $OFLAGS $IFLAGS $PASS_IFLAGS main_entry.ml
 
 # Step 7: Link everything
 echo "[7/7] Linking $OUTPUT..."
 
-# Build list of pass .cmx files
+# Build list of pass .cmx files (preserve directory)
 PASS_CMXS=""
 for f in "${PASS_FILES[@]}"; do
-    PASS_CMXS="$PASS_CMXS $(basename "${f%.ml}").cmx"
+    PASS_CMXS="$PASS_CMXS ${f%.ml}.cmx"
 done
 
 SETUP_CMX="$(basename "${SETUP_FILE%.ml}").cmx"
 
-bash -c "ulimit -s unlimited; $OC -linkpkg $OFLAGS $IFLAGS \
+# Collect conv .cmx files that exist (some may have been skipped)
+CONV_CMXS=""
+for mod in common_conv clos_lang_conv flat_lang_conv bvl_lang_conv \
+           bvi_lang_conv data_lang_conv word_lang_conv stack_lang_conv \
+           lab_lang_conv; do
+    if [ -f "il_types/${mod}.cmx" ]; then
+        CONV_CMXS="$CONV_CMXS il_types/${mod}.cmx"
+    fi
+done
+
+bash -c "ulimit -s unlimited; $OC -linkpkg $OFLAGS $IFLAGS $PASS_IFLAGS \
     hook_ref.cmx \
     ../runtime/cakeml_runtime.cmx \
     il_types/common.cmx il_types/flat_lang.cmx il_types/clos_lang.cmx \
     il_types/bvl_lang.cmx il_types/bvi_lang.cmx il_types/data_lang.cmx \
     il_types/word_lang.cmx il_types/stack_lang.cmx il_types/lab_lang.cmx \
     cake64.cmx \
-    il_types/common_conv.cmx il_types/clos_lang_conv.cmx \
-    il_types/flat_lang_conv.cmx il_types/bvl_lang_conv.cmx \
-    il_types/bvi_lang_conv.cmx il_types/data_lang_conv.cmx \
-    il_types/word_lang_conv.cmx il_types/stack_lang_conv.cmx \
-    il_types/lab_lang_conv.cmx \
+    $CONV_CMXS \
     $PASS_CMXS \
     $SETUP_CMX \
     main_entry.cmx \
