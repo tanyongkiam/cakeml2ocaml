@@ -5,7 +5,18 @@
    instead of raw bytes. *)
 
 (* Dummy printer for labLang instructions *)
-let pp_reg r = Printf.sprintf "r%s" (Z.to_string r)
+(* x64 register mapping: abstract register numbers to real names.
+   stack_names_compile has already applied x64_names before labLang,
+   so registers use physical numbering. *)
+let x64_reg_names = [|
+  "rax"; "rcx"; "rdx"; "rbx"; "rbp"; "rsp"; "rsi"; "rdi";
+  "r8"; "r9"; "r10"; "r11"; "r12"; "r13"; "r14"; "r15"
+|]
+
+let pp_reg r =
+  let n = Z.to_int r in
+  if n >= 0 && n < Array.length x64_reg_names then x64_reg_names.(n)
+  else Printf.sprintf "r%d" n
 
 let pp_imm64 w = Printf.sprintf "0x%Lx" w
 
@@ -128,12 +139,10 @@ let pp_line = function
   | Lab_lang.Label (sec, lab, len) ->
     Printf.sprintf "  .label %s_%s (len=%s):"
       (Z.to_string sec) (Z.to_string lab) (Z.to_string len)
-  | Lab_lang.Asm (acbw, bytes, len) ->
-    Printf.sprintf "    %s  ; %d bytes (len=%s)"
-      (pp_asm_or_cbw acbw) (List.length bytes) (Z.to_string len)
-  | Lab_lang.Labasm (awl, _, bytes, len) ->
-    Printf.sprintf "    %s  ; %d bytes (len=%s)"
-      (pp_asm_with_lab awl) (List.length bytes) (Z.to_string len)
+  | Lab_lang.Asm (acbw, _, _) ->
+    Printf.sprintf "    %s" (pp_asm_or_cbw acbw)
+  | Lab_lang.Labasm (awl, _, _, _) ->
+    Printf.sprintf "    %s" (pp_asm_with_lab awl)
 
 let dump_sections ch secs =
   let n_secs = List.length secs in
@@ -150,10 +159,7 @@ let dump_bitmaps ch (bitmaps : int64 list) =
   let len = List.length bitmaps in
   Printf.fprintf ch "\n; === Data segment: %d bitmap words ===\n" len;
   List.iteri (fun i w ->
-    if i < 20 || i >= len - 5 then
-      Printf.fprintf ch ";   [%d] 0x%016Lx\n" i w
-    else if i = 20 then
-      Printf.fprintf ch ";   ... (%d more words) ...\n" (len - 25)
+    Printf.fprintf ch ";   [%d] 0x%016Lx\n" i w
   ) bitmaps
 
 let dump_names ch (names : string Common.sptree_spt) =
