@@ -16,6 +16,9 @@ make build
 # Generate OCaml source for the 64-bit CakeML compiler
 make transpile          # produces generated/cake64.ml
 
+# Generate a hooked compiler that emits Intel-syntax x86_64 assembly
+./generated/build_hooked.sh passes/x64_intel_gen.ml cake64_x64_intel_dump
+
 # Compile the generated OCaml into a native binary
 # (requires large stack due to deeply nested generated code)
 ulimit -s unlimited
@@ -298,6 +301,9 @@ cd generated
 ./build_hooked.sh [pass_files...] <hook_setup.ml> [output_binary]
 
 # Example: build the labLang assembly dumper
+# Example: build the Intel-syntax textual assembly generator
+./build_hooked.sh passes/x64_intel_gen.ml cake64_x64_intel_dump
+
 ./build_hooked.sh passes/asm_dump_setup.ml cake64_asm_dump
 ```
 
