@@ -300,10 +300,10 @@ cd generated
 # Build with a hook setup file (and optional pass files):
 ./build_hooked.sh [pass_files...] <hook_setup.ml> [output_binary]
 
-# Example: build the labLang assembly dumper
 # Example: build the Intel-syntax textual assembly generator
-./build_hooked.sh passes/x64_intel_gen.ml cake64_x64_intel_dump
+./build_hooked.sh ../lib/x64_ast.ml ../lib/x64_intel_emit.ml passes/x64_intel_gen.ml cake64_intel
 
+# Example: build the labLang assembly dumper
 ./build_hooked.sh passes/asm_dump_setup.ml cake64_asm_dump
 ```
 
@@ -349,6 +349,42 @@ let () =
 
 Clean IL type definitions are in `il_types/` (e.g. `lab_lang.ml`, `common.ml`).
 Conversion functions are in `il_types/*_conv.ml`.
+
+### x64 Assembly Generation and Optimization
+
+To facilitate writing x64 peephole optimizations, the transpiler provides an intermediate `X64_ast` representation for x86-64 assembly. This replaces direct string-based assembly emission with structured OCaml data types that can be pattern matched and transformed.
+
+To use the x64 AST:
+1. Ensure `../lib/x64_ast.ml` and `../lib/x64_intel_emit.ml` (or `../lib/x64_emit.ml` for AT&T syntax) are included in your pass files.
+2. Intercept the `lab_hook` as shown in `generated/passes/x64_intel_gen.ml`.
+3. Transform the generated `Lab_lang.sec list` into a list of `X64_ast.block` elements (which contain lists of `X64_ast.instr` instructions).
+4. Apply your optimization passes by pattern matching over lists of instructions:
+
+```ocaml
+open X64_ast
+
+let rec optimize_instrs = function
+  | [] -> []
+  (* Example peephole optimization: remove redundant move *)
+  | Mov (dst1, src1) :: Mov (dst2, src2) :: rest 
+      when dst1 = src2 && src1 = dst2 -> 
+      Mov (dst1, src1) :: optimize_instrs rest
+  | instr :: rest -> instr :: optimize_instrs rest
+
+let optimize_block block =
+  { block with instrs = optimize_instrs block.instrs }
+
+let optimize_prog prog =
+  List.map optimize_block prog
+```
+
+5. Emit the final AST to a channel using `X64_intel_emit.emit_prog stdout optimized_prog`.
+
+Build the compiler with your optimization passes:
+
+```sh
+./build_hooked.sh ../lib/x64_ast.ml ../lib/x64_intel_emit.ml my_optimization_pass.ml passes/x64_intel_gen.ml cake64_optimizing
+```
 
 
 ## Bootstrap test
