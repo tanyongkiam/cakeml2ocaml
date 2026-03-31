@@ -386,6 +386,40 @@ Build the compiler with your optimization passes:
 ./build_hooked.sh ../lib/x64_ast.ml ../lib/x64_intel_emit.ml my_optimization_pass.ml passes/x64_intel_gen.ml cake64_optimizing
 ```
 
+#### Benchmarking Optimizations
+
+To quickly test and compare the performance and size of the baseline compiler against your optimized version, you can use the `bench2` test suite.
+
+1. Build both compilers:
+   ```bash
+   make transpile
+   cd generated
+   # Baseline
+   ./build_hooked.sh ../lib/x64_ast.ml ../lib/x64_intel_emit.ml passes/x64_intel_gen.ml cake64_intel
+   # Optimized
+   ./build_hooked.sh ../lib/x64_ast.ml ../lib/x64_opt_pass.ml ../lib/x64_intel_emit.ml passes/x64_ast_opt_gen.ml cake64_opt
+   cd ..
+   ```
+
+2. Generate assembly for a benchmark (e.g., `fib`):
+   ```bash
+   ./generated/cake64_intel < bench2/benchmarks/microbenchmarks/fib/fib.cml > fib_unopt.S
+   ./generated/cake64_opt < bench2/benchmarks/microbenchmarks/fib/fib.cml > fib_opt.S
+   ```
+
+3. Assemble and Link:
+   ```bash
+   gcc -o fib_unopt fib_unopt.S basis_ffi.c -lm
+   gcc -o fib_opt fib_opt.S basis_ffi.c -lm
+   ```
+
+4. Compare sizes and execution times:
+   ```bash
+   ls -l fib_unopt fib_opt
+   time ./fib_unopt
+   time ./fib_opt
+   ```
+
 
 ## Bootstrap test
 
