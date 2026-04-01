@@ -19,20 +19,15 @@ let rec optimize_instrs instrs =
   | Sub (Reg r, Imm -1L) :: rest ->
       Inc (Reg r) :: optimize_instrs rest
 
-  (* 2. XOR Zeroing *)
-  | Mov (Reg r, Imm 0L) :: rest ->
-      Xor (Reg r, Reg r) :: optimize_instrs rest
-
-  (* 3. CMP to TEST *)
+  (* 2. CMP to TEST *)
   | Cmp (Reg r, Imm 0L) :: rest ->
       Test (Reg r, Reg r) :: optimize_instrs rest
 
-  (* 4. Add/Sub Imm Sign Canonicalization *)
+  (* 3. Add/Sub Imm Sign Canonicalization *)
   | Add (Reg r, Imm n) :: rest when n < 0L ->
       Sub (Reg r, Imm (Int64.neg n)) :: optimize_instrs rest
   | Sub (Reg r, Imm n) :: rest when n < 0L ->
       Add (Reg r, Imm (Int64.neg n)) :: optimize_instrs rest
-
   | instr :: rest ->
       instr :: optimize_instrs rest
 

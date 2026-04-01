@@ -17,7 +17,9 @@ type mem = {
 
 type operand =
   | Reg of reg
+  | Reg32 of reg
   | Reg8 of reg
+  | Xmm of int
   | Imm of int64
   | Mem of mem
   | Lbl of string

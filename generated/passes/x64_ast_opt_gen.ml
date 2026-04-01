@@ -127,7 +127,12 @@ let create_prog secs names =
           (match acbw with
            | Lab_lang.Asmi (Common.Inst (Common.Skip)) -> []
            | Lab_lang.Asmi (Common.Inst (Common.Const (r, w))) ->
-             [Mov (Reg (to_reg r), Imm w)]
+             if w = 0L then
+               [Xor (Reg32 (to_reg r), Reg32 (to_reg r))]
+             else if w >= 0L && w <= 0x7FFFFFFFL then
+               [Mov (Reg32 (to_reg r), Imm w)]
+             else
+               [Mov (Reg (to_reg r), Imm w)]
            | Lab_lang.Asmi (Common.Inst (Common.Arith (Common.Binop (op, d, s, ri)))) ->
              let op_instr = match op with
                | Common.Add -> fun dst src -> Add (dst, src)
@@ -136,7 +141,12 @@ let create_prog secs names =
                | Common.Or -> fun dst src -> Or (dst, src)
                | Common.Xor -> fun dst src -> Xor (dst, src)
              in
-             if d = s then
+             if op = Common.Or && ri = Common.Reg s then
+               [Mov (Reg (to_reg d), Reg (to_reg s))]
+             else if op = Common.Xor && ri = Common.Imm (-1L) then
+               if d = s then [Not (Reg (to_reg d))]
+               else [Mov (Reg (to_reg d), Reg (to_reg s)); Not (Reg (to_reg d))]
+             else if d = s then
                [op_instr (Reg (to_reg d)) (to_operand ri)]
              else
                [Mov (Reg (to_reg d), Reg (to_reg s)); op_instr (Reg (to_reg d)) (to_operand ri)]
@@ -161,19 +171,19 @@ let create_prog secs names =
              let init = [Cmp (Reg (to_reg s3), Imm 1L); Cmc] in
              let adc = if is_d_s1 then [Adc (Reg (to_reg d), Reg (to_reg s2))]
                        else [Mov (Reg (to_reg d), Reg (to_reg s1)); Adc (Reg (to_reg d), Reg (to_reg s2))] in
-             let fin = [Mov (Reg (to_reg s3), Imm 0L); Setb (Reg8 (to_reg s3))] in
+             let fin = [Mov (Reg32 (to_reg s3), Imm 0L); Setb (Reg8 (to_reg s3))] in
              init @ adc @ fin
            | Lab_lang.Asmi (Common.Inst (Common.Arith (Common.Addoverflow (d, s1, s2, s3)))) ->
              let is_d_s1 = d = s1 in
              let add = if is_d_s1 then [Add (Reg (to_reg d), Reg (to_reg s2))]
                        else [Mov (Reg (to_reg d), Reg (to_reg s1)); Add (Reg (to_reg d), Reg (to_reg s2))] in
-             let fin = [Mov (Reg (to_reg s3), Imm 0L); Seto (Reg8 (to_reg s3))] in
+             let fin = [Mov (Reg32 (to_reg s3), Imm 0L); Seto (Reg8 (to_reg s3))] in
              add @ fin
            | Lab_lang.Asmi (Common.Inst (Common.Arith (Common.Suboverflow (d, s1, s2, s3)))) ->
              let is_d_s1 = d = s1 in
              let sub = if is_d_s1 then [Sub (Reg (to_reg d), Reg (to_reg s2))]
                        else [Mov (Reg (to_reg d), Reg (to_reg s1)); Sub (Reg (to_reg d), Reg (to_reg s2))] in
-             let fin = [Mov (Reg (to_reg s3), Imm 0L); Seto (Reg8 (to_reg s3))] in
+             let fin = [Mov (Reg32 (to_reg s3), Imm 0L); Seto (Reg8 (to_reg s3))] in
              sub @ fin
            | Lab_lang.Asmi (Common.Inst (Common.Mem (op, r, Common.Addr(a, off)))) ->
              (match op with

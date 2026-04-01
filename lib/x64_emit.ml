@@ -6,6 +6,12 @@ let string_of_reg = function
   | R8  -> "%r8"  | R9  -> "%r9"  | R10 -> "%r10" | R11 -> "%r11"
   | R12 -> "%r12" | R13 -> "%r13" | R14 -> "%r14" | R15 -> "%r15"
 
+let string_of_reg32 = function
+  | Rax -> "%eax" | Rbx -> "%ebx" | Rcx -> "%ecx" | Rdx -> "%edx"
+  | Rsi -> "%esi" | Rdi -> "%edi" | Rbp -> "%ebp" | Rsp -> "%esp"
+  | R8  -> "%r8d"  | R9  -> "%r9d"  | R10 -> "%r10d" | R11 -> "%r11d"
+  | R12 -> "%r12d" | R13 -> "%r13d" | R14 -> "%r14d" | R15 -> "%r15d"
+
 let string_of_reg8 = function
   | Rax -> "%al" | Rbx -> "%bl" | Rcx -> "%cl" | Rdx -> "%dl"
   | Rsi -> "%sil" | Rdi -> "%dil" | Rbp -> "%bpl" | Rsp -> "%spl"
@@ -28,6 +34,7 @@ let string_of_mem m =
 
 let string_of_operand = function
   | Reg r -> string_of_reg r
+  | Reg32 r -> string_of_reg32 r
   | Reg8 r -> string_of_reg8 r
   | Imm i -> "$" ^ Int64.to_string i
   | Mem m -> string_of_mem m
